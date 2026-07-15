@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Rule 13</label>
+    <protected>false</protected>
+    <values>
+        <field>Order__c</field>
+        <value xsi:type="xsd:double">13</value>
+    </values>
+    <values>
+        <field>BillingState__c</field>
+        <value xsi:type="xsd:string">NJ,New Jersey</value>
+    </values>
+    <values>
+        <field>BillingPostalCode__c</field>
+        <value xsi:type="xsd:string">100,101,102,103,104,110,111,112,113,114,115,116,117,118,119</value>
+    </values>
+    <values>
+        <field>OwnerId__c</field>
+        <value xsi:type="xsd:string">0056g000005fhpsAAA</value>
+    </values>
+    <values>
+        <field>Integration_Specialist__c</field>
+        <value xsi:type="xsd:string">0056g000006ifupAAA</value>
+    </values>
+    <values>
+        <field>Development_Specialist__c</field>
+        <value xsi:type="xsd:string">0056g0000041KQ2AAM</value>
+    </values>
+</CustomMetadata>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Rule 3</label>
+    <protected>false</protected>
+    <values>
+        <field>Order__c</field>
+        <value xsi:type="xsd:double">3</value>
+    </values>
+    <values>
+        <field>BillingCountry__c</field>
+        <value xsi:type="xsd:string">CA,Canada</value>
+    </values>
+    <values>
+        <field>BillingState__c</field>
+        <value xsi:type="xsd:string">NB,New Brunswick,NL,Newfoundland,NS,Nova Scotia,ON,Ontario,PE,Prince Edward Island,QC,Quebec</value>
+    </values>
+    <values>
+        <field>OwnerId__c</field>
+        <value xsi:type="xsd:string">0056g000006AzhJAAS</value>
+    </values>
+</CustomMetadata>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Rule 14</label>
+    <protected>false</protected>
+    <values>
+        <field>Order__c</field>
+        <value xsi:type="xsd:double">14</value>
+    </values>
+    <values>
+        <field>BillingState__c</field>
+        <value xsi:type="xsd:string">KS,Kansas,ND,North Dakota,NE,Nebraska,OK,Oklahoma,SD,South Dakota</value>
+    </values>
+    <values>
+        <field>BillingPostalCode__c</field>
+        <value xsi:type="xsd:string">750,752,754,755,761,762,763,790,791,792,793,794,797,75104,75115,75116,75121,75132,75135,75137,75141,75146,75149,75150,75164,75166,75172,75173,75180,75182,75189,75601,75602,75605,75630,75631,75638,75640,75642,75644,75647,75650,75651,75656,75657,75659,75660,75661,75662,75667,75670,75683,75686,75688,75692,75693,75694,75755,75765,75773,75783,76004,76006,76008,76010,76012,76013,76015,76016,76017,76018,76020,76021,76023,76034,76036,76039,76051,76052,76053,76054,76060,76063,76066,76067,76071,76078,76082,76086,76092,76424,76426,76427,76429,76430,76431,76435,76437,76439,76445,76448,76449,76450,76453,76454,76458,76459,76460,76463,76464,76466,76470,76471,76472,76475,76481,76483,76484,76485,76486,76487,76490,79501,79502,79505,79506,79509,79511,79512,79517,79518,79520,79521,79525,79526,79527,79528,79529,79532,79533,79534,79535,79537,79539,79543,79544,79545,79549,79553,79556,79560,79565,79601</value>
+    </values>
+    <values>
+        <field>OwnerId__c</field>
+        <value xsi:type="xsd:string">0056g000005iizaAAA</value>
+    </values>
+    <values>
+        <field>Integration_Specialist__c</field>
+        <value xsi:type="xsd:string">0056g000006BNOSAA4</value>
+    </values>
+    <values>
+        <field>Development_Specialist__c</field>
+        <value xsi:type="xsd:string">0056g000006ifuxAAA</value>
+    </values>
+</CustomMetadata>
