@@ -156,24 +156,25 @@ public with sharing class AccountAssignmentRules {
                     continue;
                 }
 
-                // Apply rule — stage field updates
-                acc.OwnerId = ruleOwnerId;
+                // Apply rule — build a new Account instance to avoid mutating
+                // read-only Trigger.new records in after-insert context.
+                Account toApply = new Account(Id = acc.Id, OwnerId = ruleOwnerId);
                 if (String.isNotBlank(rule.Integration_Specialist__c)) {
                     try {
-                        acc.Integration_Specialist__c = Id.valueOf(rule.Integration_Specialist__c);
+                        toApply.Integration_Specialist__c = Id.valueOf(rule.Integration_Specialist__c);
                     } catch (Exception e) {
                         // Malformed Id — leave field unchanged
                     }
                 }
                 if (String.isNotBlank(rule.Development_Specialist__c)) {
                     try {
-                        acc.Development_Specialist__c = Id.valueOf(rule.Development_Specialist__c);
+                        toApply.Development_Specialist__c = Id.valueOf(rule.Development_Specialist__c);
                     } catch (Exception e) {
                         // Malformed Id — leave field unchanged
                     }
                 }
 
-                toUpdate.add(acc);
+                toUpdate.add(toApply);
                 System.debug('se aplico la regla #' + rule.Order__c);
                 ruleApplied = true;
                 break; // first-match-wins
