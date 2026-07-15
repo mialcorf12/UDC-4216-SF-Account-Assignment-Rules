@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>BillingPostalCode__c</fullName>
+    <description>Comma-separated postal code prefixes for Starts With comparison (e.g. 936,937). Blank = wildcard.</description>
+    <externalId>false</externalId>
+    <label>Billing Postal Code</label>
+    <length>32768</length>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>3</visibleLines>
+</CustomField>
