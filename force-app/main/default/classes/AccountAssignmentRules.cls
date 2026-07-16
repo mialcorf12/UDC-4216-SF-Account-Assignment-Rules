@@ -3,8 +3,10 @@
  *
  * Metadata-driven Account assignment engine.
  * Evaluates Account_Assignment_Rule__mdt records in ascending Order__c and applies
- * the first matching rule to set OwnerId, Integration_Specialist__c, and
- * Development_Specialist__c on newly inserted Accounts owned by SysAdmin users.
+ * the first matching rule to set OwnerId on newly inserted Accounts owned by SysAdmin users.
+ *
+ * Integration Specialist and Development Specialist assignment is handled by the existing
+ * flow Company_Integration_Specialist_Assignment and is NOT part of this engine.
  *
  * Key design constraints:
  * - All SOQL runs ONCE before the processing loop (bulkification).
@@ -78,7 +80,7 @@ public with sharing class AccountAssignmentRules {
         // ── 2. MDT query (once, ordered) ─────────────────────────────────────
         List<Account_Assignment_Rule__mdt> rules = [
             SELECT Order__c, BillingCountry__c, BillingState__c, BillingPostalCode__c,
-                   OwnerId__c, Integration_Specialist__c, Development_Specialist__c
+                   OwnerId__c
             FROM Account_Assignment_Rule__mdt
             WHERE MasterLabel != null
             ORDER BY Order__c ASC
@@ -159,21 +161,6 @@ public with sharing class AccountAssignmentRules {
                 // Apply rule — build a new Account instance to avoid mutating
                 // read-only Trigger.new records in after-insert context.
                 Account toApply = new Account(Id = acc.Id, OwnerId = ruleOwnerId);
-                if (String.isNotBlank(rule.Integration_Specialist__c)) {
-                    try {
-                        toApply.Integration_Specialist__c = Id.valueOf(rule.Integration_Specialist__c);
-                    } catch (Exception e) {
-                        // Malformed Id — leave field unchanged
-                    }
-                }
-                if (String.isNotBlank(rule.Development_Specialist__c)) {
-                    try {
-                        toApply.Development_Specialist__c = Id.valueOf(rule.Development_Specialist__c);
-                    } catch (Exception e) {
-                        // Malformed Id — leave field unchanged
-                    }
-                }
-
                 toUpdate.add(toApply);
                 System.debug('se aplico la regla #' + rule.Order__c);
                 ruleApplied = true;

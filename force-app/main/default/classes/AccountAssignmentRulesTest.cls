@@ -275,16 +275,12 @@ private class AccountAssignmentRulesTest {
         Test.stopTest();
 
         Account result = [
-            SELECT OwnerId, Integration_Specialist__c, Development_Specialist__c
+            SELECT OwnerId
             FROM Account
             WHERE Id = :acc.Id
         ];
         System.assertEquals(sysAdminUserId, result.OwnerId,
             'No-match: OwnerId must remain the original owner');
-        System.assertEquals(null, result.Integration_Specialist__c,
-            'No-match: Integration_Specialist__c must be null');
-        System.assertEquals(null, result.Development_Specialist__c,
-            'No-match: Development_Specialist__c must be null');
     }
 
     // ─── Edge: testInvalidOwnerAlert_EmailPath ───────────────────────────────

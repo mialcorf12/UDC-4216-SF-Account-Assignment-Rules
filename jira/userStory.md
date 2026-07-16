@@ -1,12 +1,12 @@
 # UDC-4216: SF Account Assignment Rules
 
 ## Title
-As a Sales Operations Admin, I want an Account assignment engine driven by Custom Metadata rules so that new Accounts are automatically assigned to the correct Owner, Integration Specialist, and Development Specialist based on geographic territory — without requiring any code changes.
+As a Sales Operations Admin, I want an Account assignment engine driven by Custom Metadata rules so that new Accounts are automatically assigned to the correct Owner based on geographic territory — without requiring any code changes.
 
 ---
 
 ## Description
-Today, Account ownership must be assigned manually when an Account is created by a system profile, creating delays and inconsistencies across territories. This story implements a metadata-driven rule engine — `AccountAssignmentRules` — that evaluates geographic criteria (Country, State, Postal Code) in priority order and assigns the right team members in a single, bulkified `after insert` trigger. `AccountTrigger` already exists and calls `AccountTriggerHandler`; this story adds `AccountAssignmentRules` as an additional handler class called directly from `AccountTrigger` on `after insert`. Rules are managed entirely through Custom Metadata, allowing Admins to update territory coverage without touching code.
+Today, Account ownership must be assigned manually when an Account is created by a system profile, creating delays and inconsistencies across territories. This story implements a metadata-driven rule engine — `AccountAssignmentRules` — that evaluates geographic criteria (Country, State, Postal Code) in priority order and assigns the correct Owner in a single, bulkified `after insert` trigger. `AccountTrigger` already exists and calls `AccountTriggerHandler`; this story adds `AccountAssignmentRules` as an additional handler class called directly from `AccountTrigger` on `after insert`. Rules are managed entirely through Custom Metadata, allowing Admins to update territory coverage without touching code.
 
 ---
 
@@ -20,8 +20,6 @@ And an active rule exists where BillingCountry__c is set, BillingState__c and Bi
 When the AccountTrigger fires (after insert) and calls AccountAssignmentRules
 And Account.BillingCountry matches (case-insensitive) any comma-separated value in BillingCountry__c
 Then Account.OwnerId is set to OwnerId__c
-And Account.Integration_Specialist__c (Lookup to User) is set to Integration_Specialist__c (if present)
-And Account.Development_Specialist__c (Lookup to User) is set to Development_Specialist__c (if present)
 And evaluation stops — no further rules are checked
 And the debug log records: "se aplico la regla #[Order__c]"
 ```
@@ -51,7 +49,7 @@ And evaluation stops
 Given a new Account is inserted by a SysAdmin profile
 And no active rule matches the Account's geographic criteria after evaluating all rules in Order__c sequence
 When evaluation completes
-Then Account.OwnerId, Integration_Specialist__c, and Development_Specialist__c remain unchanged
+Then Account.OwnerId remains unchanged
 And the debug log records: "no cumplio con ninguna regla establecida"
 ```
 
@@ -126,7 +124,7 @@ And the error is logged for Admin review
 - **Plural Label:** Account Assignment Rules
 - **API Name:** `Account_Assignment_Rule__mdt`
 - **Visibility:** Public
-- **Description:** Defines geographic criteria for the automatic assignment of OwnerId, Integration_Specialist__c, and Development_Specialist__c on the Account object.
+- **Description:** Defines geographic criteria for the automatic assignment of OwnerId on the Account object.
 
 #### Fields
 
@@ -137,8 +135,6 @@ And the error is logged for Admin review
 | Billing State | `BillingState__c` | Text(255) | Upgradable | Comma-separated values (e.g. `CA,California,AB,Alberta`). Blank = wildcard. |
 | Billing Postal Code | `BillingPostalCode__c` | Long Text Area(2000) | Upgradable | Comma-separated prefixes for Starts With comparison (e.g. `936,937`). Blank = wildcard. |
 | Owner Id | `OwnerId__c` | Text(18) | Upgradable | 18-character Salesforce ID of the new Account Owner. Required (see Validation Rule). |
-| Integration Specialist | `Integration_Specialist__c` | Text(18) | Upgradable | 18-character Salesforce ID of the Integration Specialist (maps to Lookup(User) on Account). |
-| Development Specialist | `Development_Specialist__c` | Text(18) | Upgradable | 18-character Salesforce ID of the Development Specialist (maps to Lookup(User) on Account). |
 
 #### Validation Rule
 
@@ -178,19 +174,20 @@ This keeps the recipient list dynamic — any future membership changes in Setup
 - Proactive validation of User IDs in MDT records at save time
 - UI for rule management (Admins use Setup → Custom Metadata directly)
 - Any object other than Account
+- `Integration_Specialist__c` and `Development_Specialist__c` assignment — handled by the existing flow `Company_Integration_Specialist_Assignment`
 
 ---
 
 ## Story Points
-**8 points** — Custom Metadata Type (7 fields + validation rule) + `AccountAssignmentRules` handler with 3-scenario matching engine + case-insensitive normalization + explicit catch-all detection + inactive User validation + email alert via GroupMember query + test class covering all 7 scenarios + bulk scenario (200+ records).
+**8 points** — Custom Metadata Type (5 fields + validation rule) + `AccountAssignmentRules` handler with 3-scenario matching engine + case-insensitive normalization + explicit catch-all detection + inactive User validation + email alert via GroupMember query + test class covering all 7 scenarios + bulk scenario (200+ records).
 
 ---
 
 ## Subtasks
-1. Create `Account_Assignment_Rule__mdt` with all 7 fields and `Require_Owner` validation rule
-2. Load the 17 staging MDT records into the target org
+1. Create `Account_Assignment_Rule__mdt` with 5 fields and `Require_Owner` validation rule
+2. Load the 17 staging MDT records into the target org (OwnerId__c only; specialist fields removed)
 3. Create Public Group `AccountAssignmentRule Admins` in Setup and add Alberto Cordero as initial member
-4. Create `AccountAssignmentRules` Apex class — matching engine (Scenarios A/B/C), case-insensitive normalization, catch-all detection, inactive OwnerId detection, GroupMember email query, `Messaging.SingleEmailMessage`
+4. Create `AccountAssignmentRules` Apex class — matching engine (Scenarios A/B/C), case-insensitive normalization, catch-all detection, inactive OwnerId detection, GroupMember email query, `Messaging.SingleEmailMessage` (OwnerId assignment only)
 5. Wire `AccountAssignmentRules` into existing `AccountTrigger` on `after insert` (alongside existing `AccountTriggerHandler` call)
 6. Write `AccountAssignmentRulesTest` — scenarios: bulk 200+ (happy path), no match, non-SysAdmin skip, catch-all skip, invalid OwnerId email alert, matching scenarios A / B / C
 7. Deploy to sandbox, validate all 17 MDT records with real Account data, obtain PO sign-off

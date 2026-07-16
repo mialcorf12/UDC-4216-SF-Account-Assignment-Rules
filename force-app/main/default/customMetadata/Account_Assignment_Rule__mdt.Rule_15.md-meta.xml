@@ -14,12 +14,4 @@
         <field>OwnerId__c</field>
         <value xsi:type="xsd:string">0056g000004b126AAA</value>
     </values>
-    <values>
-        <field>Integration_Specialist__c</field>
-        <value xsi:type="xsd:string">0056g000006ifupAAA</value>
-    </values>
-    <values>
-        <field>Development_Specialist__c</field>
-        <value xsi:type="xsd:string">0056g0000041KQ2AAM</value>
-    </values>
 </CustomMetadata>
