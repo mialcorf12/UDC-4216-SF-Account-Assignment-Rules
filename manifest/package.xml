@@ -3,7 +3,6 @@
 	<types>
 		<members>AccountAssignmentRules</members>
 		<members>AccountAssignmentRulesTest</members>
-		<members>AccountTriggerHandler</members>
 		<name>ApexClass</name>
 	</types>
 	<types>
@@ -20,6 +19,7 @@
 		<members>Account_Assignment_Rule__mdt.Rule_15</members>
 		<members>Account_Assignment_Rule__mdt.Rule_16</members>
 		<members>Account_Assignment_Rule__mdt.Rule_17</members>
+        <members>Account_Assignment_Rule__mdt.Rule_18</members>
 		<members>Account_Assignment_Rule__mdt.Rule_2</members>
 		<members>Account_Assignment_Rule__mdt.Rule_3</members>
 		<members>Account_Assignment_Rule__mdt.Rule_4</members>
