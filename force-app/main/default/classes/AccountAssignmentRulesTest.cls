@@ -25,32 +25,38 @@ private class AccountAssignmentRulesTest {
     private static Id sysAdminUserId {
         get {
             if (sysAdminUserId == null) {
-                sysAdminUserId = [
-                    SELECT Id FROM User
-                    WHERE Profile.Name = 'System Administrator'
-                    AND IsActive = true
-                    LIMIT 1
-                ].Id;
+                sysAdminUserId = findActiveUserId('System Administrator');
             }
             return sysAdminUserId;
         }
         set;
     }
 
-    // Real non-SysAdmin user Id
+    // Real non-SysAdmin user Id; null when the org has no active user on that profile.
+    // Not created on the fly — inserting a User in this org cascades into an
+    // automated Contact creation that fails an unrelated record-type validation rule.
     private static Id nonSysAdminUserId {
         get {
             if (nonSysAdminUserId == null) {
-                nonSysAdminUserId = [
-                    SELECT Id FROM User
-                    WHERE Profile.Name = 'Standard User'
-                    AND IsActive = true
-                    LIMIT 1
-                ].Id;
+                nonSysAdminUserId = findActiveUserId('Standard User');
             }
             return nonSysAdminUserId;
         }
         set;
+    }
+
+    /**
+     * Resolves an active user Id for the given profile name, or null if the
+     * org has no active user on that profile.
+     */
+    private static Id findActiveUserId(String profileName) {
+        List<User> existing = [
+            SELECT Id FROM User
+            WHERE Profile.Name = :profileName
+            AND IsActive = true
+            LIMIT 1
+        ];
+        return existing.isEmpty() ? null : existing[0].Id;
     }
 
     // ─── Helper: resolve expected OwnerId from MDT by Order__c ───────────────
@@ -219,6 +225,11 @@ private class AccountAssignmentRulesTest {
 
     @isTest
     static void testNonSysAdminInsert_Ignored() {
+        if (nonSysAdminUserId == null) {
+            System.debug('Skipping testNonSysAdminInsert_Ignored: org has no active Standard User.');
+            return;
+        }
+
         // Account owned by a standard (non-SysAdmin) user must be skipped entirely.
         Account acc = prepareAccount('Test Non SysAdmin', nonSysAdminUserId);
         acc.BillingCountry = 'Australia';
