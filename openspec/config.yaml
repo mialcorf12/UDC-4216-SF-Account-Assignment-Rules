@@ -1,0 +1,20 @@
+version: "1.0"
+project:
+  name: "UDC-4216 SF Account Assignment Rules"
+  description: "Metadata-driven Account assignment engine for Salesforce"
+  repository: "https://github.com/mialcorf1/udc-4216-sf-account-assignment-rules"
+
+artifact_store:
+  mode: "both"  # both engram and openspec files
+  format: "markdown"
+
+changes:
+  - key: "udc-4216-account-assignment-rules"
+    title: "SF Account Assignment Rules"
+    status: "applied"
+    artifacts:
+      proposal: "openspec/changes/udc-4216-account-assignment-rules/proposal.md"
+      spec: "openspec/changes/udc-4216-account-assignment-rules/spec.md"
+      design: "openspec/changes/udc-4216-account-assignment-rules/design.md"
+      tasks: "openspec/changes/udc-4216-account-assignment-rules/tasks.md"
+      apply-progress: "openspec/changes/udc-4216-account-assignment-rules/apply-progress.md"

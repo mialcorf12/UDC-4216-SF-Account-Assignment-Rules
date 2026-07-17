@@ -6,7 +6,7 @@ As a Sales Operations Admin, I want an Account assignment engine driven by Custo
 ---
 
 ## Description
-Today, Account ownership must be assigned manually when an Account is created by a system profile, creating delays and inconsistencies across territories. This story implements a metadata-driven rule engine — `AccountAssignmentRules` — that evaluates geographic criteria (Country, State, Postal Code) in priority order and assigns the correct Owner in a single, bulkified `after insert` trigger. `AccountTrigger` already exists and calls `AccountTriggerHandler`; this story adds `AccountAssignmentRules` as an additional handler class called directly from `AccountTrigger` on `after insert`. Rules are managed entirely through Custom Metadata, allowing Admins to update territory coverage without touching code.
+Today, Account ownership must be assigned manually when an Account is created by a system profile, creating delays and inconsistencies across territories. This story implements a metadata-driven rule engine — `AccountAssignmentRules` — that evaluates geographic criteria (Country, State, Postal Code) in priority order and assigns the correct Owner in a single, bulkified `after insert` trigger. `AccountTrigger` already exists and calls `AccountTriggerHandler` on `after update`; this story adds `AccountAssignmentRules` as an additional handler class called directly from `AccountTrigger` on `after insert`. Rules are managed entirely through Custom Metadata, allowing Admins to update territory coverage without touching code.
 
 ---
 
@@ -34,12 +34,13 @@ Then the rule applies and fields are updated as in Scenario 1
 And evaluation stops
 ```
 
-### Scenario 3: Rule matches on State OR Postal Code prefix
+### Scenario 3: Rule matches on Country AND State AND Postal Code prefix
 ```
-Given a rule exists with BillingState__c and BillingPostalCode__c both set
-When Account.BillingState matches any value in BillingState__c (case-insensitive)
-OR Account.BillingPostalCode starts with any prefix listed in BillingPostalCode__c
-Then the rule applies (OR logic — one match is sufficient)
+Given a rule exists with BillingCountry__c, BillingState__c, and BillingPostalCode__c all set
+When Account.BillingCountry matches any value in BillingCountry__c (case-insensitive)
+AND Account.BillingState matches any value in BillingState__c (case-insensitive)
+AND Account.BillingPostalCode starts with any prefix listed in BillingPostalCode__c
+Then the rule applies (ALL non-blank criteria must pass — AND logic)
 And fields are updated as per the matched rule
 And evaluation stops
 ```
@@ -105,13 +106,15 @@ And the error is logged for Admin review
 | All blank | **Skipped explicitly** — treated as no-match |
 | Country only | `Account.BillingCountry` IN Country values |
 | Country + State | Country match **AND** State match |
-| State + Postal Code | State match **OR** `BillingPostalCode.startsWith(prefix)` |
-| Country + State + Postal Code | Country match **AND** (State match **OR** startsWith) |
+| State only | State match |
+| Postal Code only | `Account.BillingPostalCode.startsWith(prefix)` |
+| Country + State + Postal Code | Country match **AND** State match **AND** startsWith |
+| Any combination | ALL non-blank criteria must pass — **AND logic** |
 
 **Rules:**
 - **Blank field = wildcard** (ignored during evaluation), EXCEPT when ALL geographic fields are blank — that rule is explicitly skipped and never matches.
 - **Starts With:** all values in `BillingPostalCode__c` are treated as prefixes regardless of length. Match is `Account.BillingPostalCode.startsWith(prefix)`.
-- **Case-insensitive:** both sides are normalized before comparison.
+- **Case-insensitive:** both sides are normalized to lowercase before comparison.
 - **First match wins:** rules are evaluated in ascending `Order__c` order; evaluation stops on the first matching rule.
 
 ---
@@ -148,24 +151,80 @@ And the error is logged for Admin review
 ### 2. Apex Handler Class
 
 - **Class name:** `AccountAssignmentRules`
-- **Called from:** `AccountTrigger` on `after insert` (alongside the existing `AccountTriggerHandler` call)
-- **Bulkified:** processes `List<Account>`; all MDT records queried once before the loop; single DML update at the end
+- **Called from:** `AccountTrigger` on `after insert` (the existing `AccountTriggerHandler` is called on `after update`)
+- **Bulkified:** processes `List<Account>`; all SOQL queries run once before any loop; single DML update at the end
 - **Profile filter:** only Accounts whose current OwnerId belongs to a user with profile `'uLab SysAdmin'` or `'System Administrator'` are processed
 - **Case normalization:** both MDT values and Account field values are lowercased before comparison
-- **Catch-all detection:** a rule where all three geographic fields are blank is skipped explicitly before any matching logic runs
-- **Invalid OwnerId handling:** if OwnerId__c does not resolve to an active User, skip the rule, send an email alert to Public Group `'AccountAssignmentRule Admins'` (resolved at runtime via `GroupMember` → `User.Email` query), log the error, and continue to the next rule
+- **Catch-all detection:** a rule where all three geographic fields are blank is explicitly skipped before any matching logic runs
+- **Matching logic:** ALL non-blank geographic criteria on a rule must pass (AND logic); blank fields act as wildcards
+- **Invalid OwnerId handling:** if OwnerId__c is malformed or does not resolve to an active User, skip the rule, send an email alert to Public Group `'AccountAssignmentRule Admins'` (DeveloperName: `AccountAssignmentRule_Admins`), log the error, and continue to the next rule
+- **Trigger.new immutability:** in `after insert` context, Trigger.new records are read-only; updates are staged as new Account instances (`new Account(Id = acc.Id, OwnerId = ruleOwnerId)`) and applied via a single `update` DML
 
 ---
 
-### 3. Email Alert — Implementation Note
+### 3. AccountTrigger — Current Structure
 
-Apex's `Messaging.SingleEmailMessage` cannot address a Public Group by ID directly. The implementation must:
-1. Query `GroupMember` where `Group.Name = 'AccountAssignmentRule Admins'` to retrieve member `User.Email` values.
-2. Pass those addresses to `setToAddresses()`.
+```apex
+trigger AccountTrigger on Account (after insert, after update) {
+    if (Trigger.isAfter && Trigger.isInsert) {
+        AccountAssignmentRules.assign(Trigger.new);
+    }
+    if (Trigger.isAfter && Trigger.isUpdate) {
+        AccountTriggerHandler.handleDynamicUpdate(Trigger.new, Trigger.oldMap);
+    }
+}
+```
+
+---
+
+### 4. Email Alert — Implementation Note
+
+Apex's `Messaging.SingleEmailMessage` cannot address a Public Group by ID directly. The implementation:
+1. Queries `GroupMember` where `Group.DeveloperName = 'AccountAssignmentRule_Admins'` and `Group.Type = 'Regular'` to retrieve member User IDs.
+2. Queries `User.Email` for those IDs.
+3. Passes those addresses to `setToAddresses()`.
 
 This keeps the recipient list dynamic — any future membership changes in Setup are picked up automatically without code changes.
 
-> **Prerequisite:** The Public Group `AccountAssignmentRule Admins` must be created in Setup and Alberto Cordero added as a member **before** deploying the Apex class. If the group does not exist, the `GroupMember` query returns empty and the alert is silently skipped.
+> **Prerequisite:** The Public Group `AccountAssignmentRule Admins` (DeveloperName: `AccountAssignmentRule_Admins`) must be created in Setup and Alberto Cordero added as a member **before** deploying the Apex class. If the group does not exist, the `GroupMember` query returns empty and the alert is silently skipped.
+
+---
+
+### 5. Flow — Company: Integration Specialist Assignment
+
+This existing AutoLaunched Flow runs **after** `AccountAssignmentRules` has set the Owner. It is triggered on Account **Create and Update** (`RecordAfterSave`) and is responsible for populating `Integration_Specialist__c` and `Development_Specialist__c` on the Account.
+
+#### Trigger Conditions (Entry Criteria)
+Filter logic: `1 AND (2 OR 3 OR 4)`
+
+| # | Field | Operator | Value |
+| :--- | :--- | :--- | :--- |
+| 1 | `Account_Status__c` | Equals | `uLab Account` |
+| 2 | `OwnerId` | Is Changed | `true` |
+| 3 | `Integration_Specialist__c` | Is Null | `true` |
+| 4 | `Development_Specialist__c` | Is Null | `true` |
+
+The flow fires when the Account is a uLab Account **and** either the Owner changed, or one of the specialist fields is still blank.
+
+#### Flow Steps
+
+| Step | Label | What it does |
+| :--- | :--- | :--- |
+| 1 | Get new Owner | Queries the `User` record of the Account's current Owner (`$Record.Owner.Id`) to read the Owner's `Integration_Specialist__c` and `Development_Specialist__c` fields (custom fields on the User object). |
+| 2 | Get Primary IS User | Queries the `User` record whose `Full_Name__c` matches the Owner's `Integration_Specialist__c` value — resolves the name to a User ID. |
+| 3 | Get Secondary IS User | Queries the `User` record whose `Full_Name__c` matches the Owner's `Development_Specialist__c` value — resolves the name to a User ID. |
+| 4 | Update Integration Specialist Fields | Updates `$Record.Integration_Specialist__c` and `$Record.Development_Specialist__c` with the IDs obtained in steps 2 and 3. |
+
+#### Interaction with AccountAssignmentRules
+
+```
+after insert
+  └─ AccountAssignmentRules.assign()   → sets Account.OwnerId
+  └─ Flow (RecordAfterSave)            → OwnerId changed → reads new Owner's specialist fields
+                                       → sets Integration_Specialist__c + Development_Specialist__c
+```
+
+Because the flow triggers on `OwnerId IsChanged`, the Owner assignment made by `AccountAssignmentRules` automatically kicks off the specialist assignment on the same transaction's after-save phase — no additional code or coordination required.
 
 ---
 
@@ -179,15 +238,21 @@ This keeps the recipient list dynamic — any future membership changes in Setup
 ---
 
 ## Story Points
-**8 points** — Custom Metadata Type (5 fields + validation rule) + `AccountAssignmentRules` handler with 3-scenario matching engine + case-insensitive normalization + explicit catch-all detection + inactive User validation + email alert via GroupMember query + test class covering all 7 scenarios + bulk scenario (200+ records).
+**8 points** — Custom Metadata Type (5 fields + validation rule) + 18 MDT records + `AccountAssignmentRules` handler with geographic matching engine (AND logic, case-insensitive, wildcard blanks) + explicit catch-all detection + inactive/malformed OwnerId validation + email alert via GroupMember query + `AccountTrigger` wiring (after insert) + test class covering all 7 scenarios + bulk scenario (200+ records).
 
 ---
 
 ## Subtasks
-1. Create `Account_Assignment_Rule__mdt` with 5 fields and `Require_Owner` validation rule
-2. Load the 17 staging MDT records into the target org (OwnerId__c only; specialist fields removed)
-3. Create Public Group `AccountAssignmentRule Admins` in Setup and add Alberto Cordero as initial member
-4. Create `AccountAssignmentRules` Apex class — matching engine (Scenarios A/B/C), case-insensitive normalization, catch-all detection, inactive OwnerId detection, GroupMember email query, `Messaging.SingleEmailMessage` (OwnerId assignment only)
-5. Wire `AccountAssignmentRules` into existing `AccountTrigger` on `after insert` (alongside existing `AccountTriggerHandler` call)
-6. Write `AccountAssignmentRulesTest` — scenarios: bulk 200+ (happy path), no match, non-SysAdmin skip, catch-all skip, invalid OwnerId email alert, matching scenarios A / B / C
-7. Deploy to sandbox, validate all 17 MDT records with real Account data, obtain PO sign-off
+
+| # | Status | Task |
+| :--- | :--- | :--- |
+| 1 | ✅ Done | Create `Account_Assignment_Rule__mdt` with 5 fields and `Require_Owner` validation rule |
+| 2 | ✅ Done | Load the 18 MDT records into the target org |
+| 3 | ✅ Done | Retrieve existing flow `Company_Integration_Specialist_Assignment` and `AccountTrigger` / `AccountTriggerHandler` from org |
+| 4 | ✅ Done | Create `AccountAssignmentRules` Apex class — matching engine (AND logic per non-blank field), case-insensitive normalization, catch-all detection, inactive/malformed OwnerId detection, GroupMember email query, `Messaging.SingleEmailMessage` |
+| 5 | ✅ Done | Write `AccountAssignmentRulesTest` — scenarios: bulk 200+ (happy path), no match, non-SysAdmin skip, catch-all skip, invalid OwnerId email alert, matching scenarios A / B / C |
+| 6 | ✅ Done | Wire `AccountAssignmentRules` into existing `AccountTrigger` on `after insert` (existing `AccountTriggerHandler` remains on `after update`) |
+| 7 | ✅ Done | Deploy to staging org (`sf project deploy start`) |
+| 8 | ⏳ Pending | Create Public Group `AccountAssignmentRule Admins` (DeveloperName: `AccountAssignmentRule_Admins`) in Setup and add Alberto Cordero as initial member |
+| 9 | ⏳ Pending | Validate all 18 MDT records with real Account data in sandbox |
+| 10 | ⏳ Pending | Obtain PO sign-off and deploy to production |
