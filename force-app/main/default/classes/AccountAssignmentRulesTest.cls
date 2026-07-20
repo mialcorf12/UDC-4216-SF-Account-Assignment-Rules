@@ -427,6 +427,62 @@ private class AccountAssignmentRulesTest {
         }
     }
 
+    // ─── 4.2.9b testStateOrPostal_StateMatchesPostalDoesNot ──────────────────
+
+    @isTest
+    static void testStateOrPostal_StateMatchesPostalDoesNot() {
+        // Rule 16: BillingState__c contains 'AR' (Arkansas), BillingPostalCode__c
+        // contains TX/NM/LA prefixes — NOT 72xxx (Arkansas range).
+        // Account with State=AR + Postal=72212 must still match Rule 16
+        // because State OR Postal — State alone is sufficient.
+        Id expectedOwner = getMdtOwnerId(16);
+        System.assertNotEquals(null, expectedOwner,
+            'MDT Rule 16 must have a non-blank OwnerId__c');
+
+        Account acc = prepareAccount('Test State OR Postal — State Wins', sysAdminUserId);
+        acc.BillingState      = 'AR';
+        acc.BillingPostalCode = '72212'; // not in Rule 16 postal prefixes
+
+        Test.startTest();
+        AccountAssignmentRules.assign(new List<Account>{ acc });
+        Test.stopTest();
+
+        Account result = [SELECT OwnerId FROM Account WHERE Id = :acc.Id];
+        System.assertEquals(
+            expectedOwner,
+            result.OwnerId,
+            'Rule 16 must match when State=AR even if Postal=72212 has no prefix match'
+        );
+    }
+
+    // ─── 4.2.9c testStateOrPostal_PostalMatchesStateDoesNot ──────────────────
+
+    @isTest
+    static void testStateOrPostal_PostalMatchesStateDoesNot() {
+        // Rule 16: BillingState__c contains 'AR,Arkansas,LA,...', BillingPostalCode__c
+        // contains prefix '770' (Houston, TX area).
+        // Account with State='TX' (not in list) + Postal='77001' must still match Rule 16
+        // because Postal prefix '770' is in the list.
+        Id expectedOwner = getMdtOwnerId(16);
+        System.assertNotEquals(null, expectedOwner,
+            'MDT Rule 16 must have a non-blank OwnerId__c');
+
+        Account acc = prepareAccount('Test State OR Postal — Postal Wins', sysAdminUserId);
+        acc.BillingState      = 'TX';    // not in Rule 16 state list
+        acc.BillingPostalCode = '77001'; // prefix '770' IS in Rule 16 postal list
+
+        Test.startTest();
+        AccountAssignmentRules.assign(new List<Account>{ acc });
+        Test.stopTest();
+
+        Account result = [SELECT OwnerId FROM Account WHERE Id = :acc.Id];
+        System.assertEquals(
+            expectedOwner,
+            result.OwnerId,
+            'Rule 16 must match when Postal prefix 770 matches even if State=TX is not in the list'
+        );
+    }
+
     // ─── 4.2.9 testLowestOrderWins ────────────────────────────────────────────
 
     @isTest

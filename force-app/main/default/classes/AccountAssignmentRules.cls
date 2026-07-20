@@ -162,13 +162,13 @@ public with sharing class AccountAssignmentRules {
                 // read-only Trigger.new records in after-insert context.
                 Account toApply = new Account(Id = acc.Id, OwnerId = ruleOwnerId);
                 toUpdate.add(toApply);
-                System.debug('se aplico la regla #' + rule.Order__c);
+                System.debug('It applied rule #' + rule.Order__c);
                 ruleApplied = true;
                 break; // first-match-wins
             }
 
             if (!ruleApplied) {
-                System.debug('no cumplio con ninguna regla establecida');
+                System.debug('It did not comply with any established rule');
             }
         }
 
@@ -193,21 +193,24 @@ public with sharing class AccountAssignmentRules {
     /**
      * Evaluates whether an Account satisfies a rule's geographic criteria.
      *
-     * Matching rules:
+     * Matching logic:
      * - Case-insensitive comparison.
-     * - Blank rule field = wildcard (criterion is skipped / always passes).
+     * - Blank rule field = criterion absent (not evaluated).
      * - Country: comma-separated list — account country must appear in the list.
      * - State:   comma-separated list — account state must appear in the list.
      * - Postal:  comma-separated prefix list — account postal must startsWith any prefix.
      *
-     * A rule matches only when ALL non-blank criteria pass.
+     * Evaluation order:
+     *   1. Country (if present) must match — AND with everything else.
+     *   2. State OR Postal: if both are present, at least one must match.
+     *      If only one is present, it must match.
      */
     private static Boolean matches(Account_Assignment_Rule__mdt rule, Account acc) {
-        String accCountry = acc.BillingCountry != null ? acc.BillingCountry.toLowerCase().trim() : '';
-        String accState   = acc.BillingState   != null ? acc.BillingState.toLowerCase().trim()   : '';
+        String accCountry = acc.BillingCountry    != null ? acc.BillingCountry.toLowerCase().trim()    : '';
+        String accState   = acc.BillingState      != null ? acc.BillingState.toLowerCase().trim()      : '';
         String accPostal  = acc.BillingPostalCode != null ? acc.BillingPostalCode.toLowerCase().trim() : '';
 
-        // Country check
+        // ── Country (AND) ─────────────────────────────────────────────────────
         if (String.isNotBlank(rule.BillingCountry__c)) {
             Set<String> countryCriteria = new Set<String>();
             for (String part : rule.BillingCountry__c.split(',')) {
@@ -218,28 +221,33 @@ public with sharing class AccountAssignmentRules {
             }
         }
 
-        // State check
-        if (String.isNotBlank(rule.BillingState__c)) {
-            Set<String> stateCriteria = new Set<String>();
-            for (String part : rule.BillingState__c.split(',')) {
-                stateCriteria.add(part.trim().toLowerCase());
-            }
-            if (!stateCriteria.contains(accState)) {
-                return false;
-            }
-        }
+        // ── State OR Postal ───────────────────────────────────────────────────
+        Boolean hasState  = String.isNotBlank(rule.BillingState__c);
+        Boolean hasPostal = String.isNotBlank(rule.BillingPostalCode__c);
 
-        // Postal Code prefix check
-        if (String.isNotBlank(rule.BillingPostalCode__c)) {
+        if (hasState || hasPostal) {
+            Boolean stateMatched  = false;
             Boolean postalMatched = false;
-            for (String part : rule.BillingPostalCode__c.split(',')) {
-                String prefix = part.trim().toLowerCase();
-                if (String.isNotBlank(prefix) && accPostal.startsWith(prefix)) {
-                    postalMatched = true;
-                    break;
+
+            if (hasState) {
+                Set<String> stateCriteria = new Set<String>();
+                for (String part : rule.BillingState__c.split(',')) {
+                    stateCriteria.add(part.trim().toLowerCase());
+                }
+                stateMatched = stateCriteria.contains(accState);
+            }
+
+            if (hasPostal) {
+                for (String part : rule.BillingPostalCode__c.split(',')) {
+                    String prefix = part.trim().toLowerCase();
+                    if (String.isNotBlank(prefix) && accPostal.startsWith(prefix)) {
+                        postalMatched = true;
+                        break;
+                    }
                 }
             }
-            if (!postalMatched) {
+
+            if (!(stateMatched || postalMatched)) {
                 return false;
             }
         }
@@ -259,7 +267,7 @@ public with sharing class AccountAssignmentRules {
      */
     @TestVisible
     private static void sendInvalidOwnerAlert(String ruleOrder, String ownerId, List<String> alertEmails) {
-        System.debug('regla #' + ruleOrder + ' fallida — OwnerId inválido: ' + ownerId);
+        System.debug('Rule #' + ruleOrder + ' failed — Invalid OwnerId: ' + ownerId);
 
         if (Test.isRunningTest() && skipEmailInTest) {
             return;
