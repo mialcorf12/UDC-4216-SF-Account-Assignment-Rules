@@ -14,11 +14,6 @@
  * - isCatchAll() prevents all-blank rules from firing.
  * - sendInvalidOwnerAlert() is @TestVisible and suppressed in test context
  *   via skipEmailInTest.
- *
- * Debug log strings are in Spanish per project language contract:
- *   'se aplico la regla #N'
- *   'no cumplio con ninguna regla establecida'
- *   'regla #N fallida — OwnerId inválido: <Id>'
  */
 public with sharing class AccountAssignmentRules {
 
@@ -40,13 +35,15 @@ public with sharing class AccountAssignmentRules {
         }
 
         // ── 1. Profile filter ────────────────────────────────────────────────
-        List<Profile> sysAdminProfiles = [
-            SELECT Id FROM Profile
-            WHERE Name IN ('uLab SysAdmin', 'System Administrator')
-        ];
+        // Resolved from SysAdmin_Profile__mdt rather than a direct SOQL query
+        // against Profile, which throws QueryException during Lead Convert.
         Set<Id> profileIds = new Set<Id>();
-        for (Profile p : sysAdminProfiles) {
-            profileIds.add(p.Id);
+        for (SysAdmin_Profile__mdt sysAdminProfile : [SELECT ProfileId__c FROM SysAdmin_Profile__mdt]) {
+            try {
+                profileIds.add(Id.valueOf(sysAdminProfile.ProfileId__c));
+            } catch (Exception e) {
+                // Malformed Id string — skipped, treated as not configured
+            }
         }
 
         Set<Id> accountOwnerIds = new Set<Id>();

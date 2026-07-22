@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Stores the Profile Ids treated as SysAdmin for Account owner resolution in AccountAssignmentRules, avoiding a direct SOQL query against the Profile object (unsupported during Lead Convert).</description>
+    <label>SysAdmin Profile</label>
+    <pluralLabel>SysAdmin Profiles</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>
