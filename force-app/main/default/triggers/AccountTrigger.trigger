@@ -1,6 +1,6 @@
 trigger AccountTrigger on Account (after insert, after update) {
     if (Trigger.isAfter && Trigger.isInsert) {
-        AccountAssignmentRules.assign(Trigger.new);
+        System.enqueueJob(new AccountAssignmentRulesQueueable(new Map<Id, Account>(Trigger.new).keySet()));
     }
     if (Trigger.isAfter && Trigger.isUpdate) {
         AccountTriggerHandler.handleDynamicUpdate(Trigger.new, Trigger.oldMap);

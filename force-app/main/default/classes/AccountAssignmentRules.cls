@@ -8,6 +8,12 @@
  * Integration Specialist and Development Specialist assignment is handled by the existing
  * flow Company_Integration_Specialist_Assignment and is NOT part of this engine.
  *
+ * assign() is invoked from AccountTrigger via AccountAssignmentRulesQueueable rather than
+ * synchronously, because Lead Convert (Database.convertLead) runs the after-insert trigger
+ * inside a restricted transaction where SELECT ... FROM User WHERE ProfileId throws
+ * "No such column 'ProfileId' on entity 'User'". Queueable execution happens in a fresh
+ * context after that transaction commits, avoiding the restriction.
+ *
  * Key design constraints:
  * - All SOQL runs ONCE before the processing loop (bulkification).
  * - A single DML statement updates all staged Accounts after the loop.

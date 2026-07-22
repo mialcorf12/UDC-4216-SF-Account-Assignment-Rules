@@ -526,4 +526,39 @@ private class AccountAssignmentRulesTest {
             'Canada+Alberta must not get Rule 1 (Australia) owner'
         );
     }
+
+    // ─── Coverage: AccountAssignmentRulesQueueable via AccountTrigger ────────
+
+    @isTest
+    static void testTriggerInsert_EnqueuesQueueableAndAssigns() {
+        // Inserting through the trigger (rather than calling assign() directly)
+        // exercises AccountTrigger's enqueueJob() call and AccountAssignmentRulesQueueable.execute().
+        Id expectedOwner = getMdtOwnerId(1);
+        System.assertNotEquals(null, expectedOwner,
+            'MDT Rule 1 must have a non-blank OwnerId__c');
+
+        Id commRtId = [
+            SELECT Id FROM RecordType
+            WHERE SObjectType = 'Account' AND DeveloperName = 'Commercial'
+            LIMIT 1
+        ].Id;
+
+        Test.startTest();
+        Account acc = new Account(
+            Name           = 'Test Queueable Coverage',
+            RecordTypeId   = commRtId,
+            Website        = 'https://testassignment.example.com',
+            OwnerId        = sysAdminUserId,
+            BillingCountry = 'Australia'
+        );
+        insert acc;
+        Test.stopTest();
+
+        Account result = [SELECT OwnerId FROM Account WHERE Id = :acc.Id];
+        System.assertEquals(
+            expectedOwner,
+            result.OwnerId,
+            'Trigger-enqueued Queueable must apply Rule 1 for Australia'
+        );
+    }
 }
